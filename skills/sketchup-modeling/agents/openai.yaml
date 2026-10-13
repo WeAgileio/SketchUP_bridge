@@ -1,0 +1,4 @@
+interface:
+  display_name: "SketchUp 建模"
+  short_description: "透過本機橋接查詢及修改 SketchUp 模型，支援尺寸核對、元件與視圖回饋"
+  default_prompt: "使用 $sketchup-modeling，先讀取目前 SketchUp 模型，再依我的需求建立或修改物件並核對結果。"

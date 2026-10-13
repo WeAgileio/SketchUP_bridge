@@ -1,0 +1,14 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+bridge-runtime/
+verification/
+output/
+*.skp
+*.skb
+*.rbz
+.env
+.env.*
+!.env.example

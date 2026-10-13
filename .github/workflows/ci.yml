@@ -1,0 +1,37 @@
+name: Verify and package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+      - name: Install test dependency
+        run: gem install minitest --no-document
+      - name: Check Ruby syntax
+        run: ruby -e 'Dir.glob("{extension,scripts}/**/*.rb").each { |f| abort("Syntax check failed") unless system("ruby", "-c", f) }'
+      - name: Test transport
+        run: ruby tests/test_transport.rb
+      - name: Test client and distribution
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
+      - name: Build distributions
+        run: python3 scripts/package.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sketchup-bridge-distributions
+          path: dist/*
+          if-no-files-found: error
