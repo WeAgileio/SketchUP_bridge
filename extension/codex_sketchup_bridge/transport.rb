@@ -5,6 +5,7 @@ module CodexSketchupBridge
   class Transport
     DIRECTORIES = %w[inbox processing results rejections journal exports].freeze
     NOFOLLOW = File.const_defined?(:NOFOLLOW) ? File::NOFOLLOW : 0
+    WINDOWS = RUBY_PLATFORM.match?(/mswin|mingw/)
     RESERVED_NAME = /\A(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|\z)/i
     attr_reader :root, :session_id
 
@@ -48,9 +49,23 @@ module CodexSketchupBridge
         file.flush
         file.fsync
       end
-      File.rename(temp, path)
+      rename_file(temp, path)
     ensure
       File.delete(temp) if temp && File.exist?(temp)
+    end
+
+    def rename_file(source, destination)
+      retries = 0
+      begin
+        File.rename(source, destination)
+      rescue Errno::EACCES, Errno::EPERM
+        # Windows cannot replace a file during even a short read. Retry only
+        # this filesystem step, never the request or model operation.
+        raise unless WINDOWS && retries < 10
+        retries += 1
+        sleep 0.02
+        retry
+      end
     end
 
     def read(relative)
@@ -149,7 +164,7 @@ module CodexSketchupBridge
       executed = false
       moved = false
       begin
-        File.rename(safe_path("inbox/#{file}"), safe_path("processing/#{file}"))
+        rename_file(safe_path("inbox/#{file}"), safe_path("processing/#{file}"))
         moved = true
         request = read("processing/#{file}")
         Protocol.validate!(request)

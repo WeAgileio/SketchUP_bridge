@@ -87,6 +87,6 @@ Ruby 模式需由使用者在選單啟用；重啟後預設關閉。腳本是完
 
 ## Windows 檔案行為（0.1.1）
 
-JSON 以 UTF-8 位元組讀寫；客戶端接受帶 UTF-8 BOM 的參數檔。Windows 讀取 handle 允許 FILE_SHARE_DELETE，使 Ruby 能在讀取期間替換心跳。NOFOLLOW 依平台可用性選擇，路徑仍拒絕符號連結／junction；佇列內部相對路徑禁止反斜線、磁碟代號、ADS 與保留裝置名稱。橋接根目錄可包含中文與空白。
+JSON 以 UTF-8 位元組讀寫；客戶端接受帶 UTF-8 BOM 的參數檔。Windows 短暫讀取可能阻擋檔案替換；Ruby 僅在 Windows 的 EACCES／EPERM 對同一次 rename 最多重試 10 次、合計等待 200 ms。重試不重新執行模型操作，超過上限仍回報錯誤。NOFOLLOW 依平台可用性選擇，路徑仍拒絕符號連結／junction；佇列內部相對路徑禁止反斜線、磁碟代號、ADS 與保留裝置名稱。橋接根目錄可包含中文與空白。
 
 Windows 權限由帳號及目錄 ACL 控制，0700/0600 不能視為 Windows ACL 隔離。只使用使用者信任的本機目錄；此協定仍不防禦同帳號程序的惡意競態。

@@ -17,45 +17,9 @@ RESERVED_NAME = re.compile(r'^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)', re.I
 
 
 def open_binary_read(path):
-    """Allow atomic replacement during Windows reads; refuse reparse points."""
-    if os.name != 'nt':
-        return os.fdopen(os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0)), 'rb')
-    import ctypes
-    from ctypes import wintypes
-    import msvcrt
-
-    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
-    create = kernel.CreateFileW
-    create.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
-                       wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
-    create.restype = wintypes.HANDLE
-    close = kernel.CloseHandle
-    close.argtypes = [wintypes.HANDLE]
-    close.restype = wintypes.BOOL
-
-    class AttributeTagInfo(ctypes.Structure):
-        _fields_ = [('attributes', wintypes.DWORD), ('tag', wintypes.DWORD)]
-
-    info = kernel.GetFileInformationByHandleEx
-    info.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID, wintypes.DWORD]
-    info.restype = wintypes.BOOL
-    # GENERIC_READ, SHARE_READ | SHARE_WRITE | SHARE_DELETE, OPEN_EXISTING,
-    # FILE_FLAG_OPEN_REPARSE_POINT. A reader must not block heartbeat rename.
-    handle = create(str(path), 0x80000000, 0x7, None, 3, 0x00200000, None)
-    if handle == ctypes.c_void_p(-1).value:
-        raise ctypes.WinError(ctypes.get_last_error())
-    try:
-        attributes = AttributeTagInfo()
-        if not info(handle, 9, ctypes.byref(attributes), ctypes.sizeof(attributes)):
-            raise ctypes.WinError(ctypes.get_last_error())
-        if attributes.attributes & 0x400:
-            raise ValueError('Reparse points are not allowed: ' + str(path))
-        descriptor = msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY)
-        handle = None  # The descriptor now owns the Windows handle.
-        return os.fdopen(descriptor, 'rb')
-    finally:
-        if handle is not None:
-            close(handle)
+    """Read bytes; path() checks symlinks/reparse points on every platform."""
+    flags = os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_BINARY', 0)
+    return os.fdopen(os.open(path, flags), 'rb')
 
 
 class BridgeClient:

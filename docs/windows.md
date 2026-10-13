@@ -49,5 +49,5 @@ PowerShell 參數建議使用 `--args-file`，避免內嵌 JSON 引號差異。U
 ## 相容處理依據
 
 - Python 的部分檔案旗標視平台而定，不能直接假設存在 `O_NOFOLLOW`：[Python os 文件](https://docs.python.org/3.11/library/os.html#os.O_NOFOLLOW)。
-- Windows 的檔案共享模式會影響替換操作；讀取心跳時允許刪除共享：[Microsoft CreateFileW](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew)。
+- Windows 的檔案共享模式會影響替換操作；短暫忙碌以有限次檔案替換重試處理：[Microsoft CreateFileW](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew)。
 - Ruby、SketchUp API 與執行環境版本須分別核對：[SketchUp Ruby API release notes](https://ruby.sketchup.com/file.ReleaseNotes.html)。

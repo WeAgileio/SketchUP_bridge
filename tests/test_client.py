@@ -57,16 +57,15 @@ class ClientTests(unittest.TestCase):
             finally:
                 link.rmdir()
 
-    def test_open_reader_allows_atomic_replacement(self):
+    def test_read_closes_handle_before_atomic_replacement(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory).resolve()
             path = root / 'session.json'
             path.write_bytes(b'{"value":1}')
-            with module.open_binary_read(path) as reader:
-                replacement = root / 'new.json'
-                replacement.write_bytes(b'{"value":2}')
-                os.replace(replacement, path)
-                self.assertEqual(json.loads(reader.read()), {'value': 1})
+            self.assertEqual(module.BridgeClient(root).read('session.json'), {'value': 1})
+            replacement = root / 'new.json'
+            replacement.write_bytes(b'{"value":2}')
+            os.replace(replacement, path)
             self.assertEqual(module.BridgeClient(root).read('session.json'), {'value': 2})
 
     def test_timeout_does_not_replay(self):

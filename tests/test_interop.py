@@ -41,13 +41,15 @@ class InteropTests(unittest.TestCase):
                 replay = client.submit_request(submitted['request'])
                 response = client.wait(replay['request_id'], replay['receipt'], timeout=5)
                 self.assertEqual(response['data']['executions'], 10)
-                # Windows readers without FILE_SHARE_DELETE break Ruby's next rename.
+                # A brief Windows reader must not stop the bridge or replay a request.
                 with bridge.open_binary_read(root / 'session.json') as held_reader:
                     previous = json.loads(held_reader.read())['heartbeat_at']
-                    deadline = time.monotonic() + 5
-                    while client.state()['heartbeat_at'] == previous and time.monotonic() < deadline:
-                        time.sleep(0.02)
-                    self.assertNotEqual(client.state()['heartbeat_at'], previous)
+                    time.sleep(0.08)
+                deadline = time.monotonic() + 5
+                while client.state()['heartbeat_at'] == previous and time.monotonic() < deadline:
+                    time.sleep(0.02)
+                self.assertNotEqual(client.state()['heartbeat_at'], previous)
+                self.assertEqual(client.state()['revision'], 10)
                 self.assertIsNone(process.poll(), 'Ruby transport exited during heartbeat replacement')
             finally:
                 if root.exists():
