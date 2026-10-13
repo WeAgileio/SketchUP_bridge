@@ -160,7 +160,7 @@ class TransportTest < Minitest::Test
     link = File.join(@dir, 'exports', 'escape')
     Dir.mkdir(target)
     if Gem.win_platform?
-      _out, err, status = Open3.capture3('cmd', '/d', '/c', 'mklink', '/J', link, target)
+      _out, err, status = Open3.capture3('cmd', '/d', '/c', 'mklink', '/J', link.tr('/', '\\'), target.tr('/', '\\'))
       assert status.success?, err
     else
       File.symlink(target, link)
