@@ -84,3 +84,9 @@ Ruby 模式需由使用者在選單啟用；重啟後預設關閉。腳本是完
 常見 code：invalid_request、unsupported_version、stale_session、request_id_conflict、model_mismatch、stale_revision、entity_missing、ambiguous_scope、editing_context、native_tool_active、locked_entity、invalid_arguments、invalid_geometry、ruby_disabled、invalid_result、result_too_large、invalid_path、file_exists、export_failed、execution_error、directory_busy、outcome_unknown。
 
 檔案佇列沒有防禦同帳號惡意程序的保證；目錄與資料為使用者可存取，session_id 防止誤投遞。不要讓兩台機器使用 iCloud 同步的同一佇列。實機驗證範圍與限制見 [驗證文件](verification.md)。
+
+## Windows 檔案行為（0.1.1）
+
+JSON 以 UTF-8 位元組讀寫；客戶端接受帶 UTF-8 BOM 的參數檔。Windows 讀取 handle 允許 FILE_SHARE_DELETE，使 Ruby 能在讀取期間替換心跳。NOFOLLOW 依平台可用性選擇，路徑仍拒絕符號連結／junction；佇列內部相對路徑禁止反斜線、磁碟代號、ADS 與保留裝置名稱。橋接根目錄可包含中文與空白。
+
+Windows 權限由帳號及目錄 ACL 控制，0700/0600 不能視為 Windows ACL 隔離。只使用使用者信任的本機目錄；此協定仍不防禦同帳號程序的惡意競態。

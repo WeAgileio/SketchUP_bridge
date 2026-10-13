@@ -1,5 +1,7 @@
 require 'minitest/autorun'
 require 'tmpdir'
+require 'open3'
+require 'rbconfig'
 require_relative '../extension/codex_sketchup_bridge/transport'
 
 class FakeAdapter
@@ -19,7 +21,7 @@ end
 
 class TransportTest < Minitest::Test
   def setup
-    @dir = Dir.mktmpdir('bridge-', '/private/tmp')
+    @dir = File.realpath(Dir.mktmpdir('bridge-'))
     @adapter = FakeAdapter.new
     @transport = CodexSketchupBridge::Transport.new(@dir, @adapter).start
   end
@@ -81,8 +83,6 @@ class TransportTest < Minitest::Test
     competing = CodexSketchupBridge::Transport.new(@dir, @adapter)
     assert_raises(CodexSketchupBridge::BridgeError) { competing.start }
     assert_raises(CodexSketchupBridge::BridgeError) { @transport.safe_path('exports/../../outside') }
-    File.symlink('/private/tmp', File.join(@dir, 'exports', 'escape'))
-    assert_raises(CodexSketchupBridge::BridgeError) { @transport.safe_path('exports/escape/a.png') }
     @transport.stop
     send_request(request)
     assert_equal 0, @adapter.calls
@@ -118,6 +118,58 @@ class TransportTest < Minitest::Test
     refute protocol.valid_timestamp?('2026-02-29T12:30:00Z')
     refute protocol.valid_timestamp?('2026-10-05T24:00:00Z')
     refute protocol.valid_timestamp?('2026-10-05T12:00:00+25:00')
+  end
+
+  def test_windows_path_forms_are_rejected_on_all_platforms
+    ['..\\escape', 'C:/escape', 'C:escape', '/escape', '//server/share',
+     'results/id.json:stream', 'results/CON.json', 'results/LPT1',
+     'results/id.', 'a//b', 'a/./b'].each do |path|
+      assert_raises(CodexSketchupBridge::BridgeError) { @transport.safe_path(path) }
+    end
+  end
+
+  def test_utf8_content_roundtrips_in_unicode_directory
+    root = File.join(@dir, '中文 空間')
+    transport = CodexSketchupBridge::Transport.new(root, @adapter).start
+    transport.atomic_write('results/unicode.json', { 'name' => '客廳 櫃體', 'line' => "a\nb" })
+    assert_equal({ 'name' => '客廳 櫃體', 'line' => "a\nb" }, transport.read('results/unicode.json'))
+    assert_equal Encoding::UTF_8, transport.read('results/unicode.json')['name'].encoding
+  ensure
+    transport&.stop
+  end
+
+  def test_directory_lock_across_processes
+    code = <<~'RUBY'
+      require ARGV.shift
+      begin
+        CodexSketchupBridge::Transport.new(ARGV.shift, Object.new).start
+        abort 'Lock unexpectedly acquired'
+      rescue CodexSketchupBridge::BridgeError => error
+        abort error.message unless error.code == 'directory_busy'
+        puts error.code
+      end
+    RUBY
+    out, err, status = Open3.capture3(RbConfig.ruby, '-e', code,
+      File.expand_path('../extension/codex_sketchup_bridge/transport.rb', __dir__), @dir)
+    assert status.success?, err
+    assert_equal 'directory_busy', out.strip
+  end
+
+  def test_symlink_or_windows_junction_is_rejected
+    target = File.join(@dir, 'target')
+    link = File.join(@dir, 'exports', 'escape')
+    Dir.mkdir(target)
+    if Gem.win_platform?
+      _out, err, status = Open3.capture3('cmd', '/d', '/c', 'mklink', '/J', link, target)
+      assert status.success?, err
+    else
+      File.symlink(target, link)
+    end
+    assert_raises(CodexSketchupBridge::BridgeError) { @transport.safe_path('exports/escape/a.png') }
+  ensure
+    if link && File.symlink?(link)
+      Gem.win_platform? ? Dir.rmdir(link) : File.unlink(link)
+    end
   end
 
   def test_serialization_guards
