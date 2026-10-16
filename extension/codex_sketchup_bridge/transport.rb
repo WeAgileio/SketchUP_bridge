@@ -54,14 +54,14 @@ module CodexSketchupBridge
       File.delete(temp) if temp && File.exist?(temp)
     end
 
-    def rename_file(source, destination)
+    def rename_file(source, destination, windows: WINDOWS)
       retries = 0
       begin
         File.rename(source, destination)
       rescue Errno::EACCES, Errno::EPERM
         # Windows cannot replace a file during even a short read. Retry only
         # this filesystem step, never the request or model operation.
-        raise unless WINDOWS && retries < 10
+        raise unless windows && retries < 10
         retries += 1
         sleep 0.02
         retry

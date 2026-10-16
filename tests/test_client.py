@@ -1,3 +1,4 @@
+import datetime
 import importlib.util
 import json
 import os
@@ -34,6 +35,28 @@ class ClientTests(unittest.TestCase):
             self.assertEqual(json.loads(output.stdout)['request'], request)
             queued = next((root / 'inbox').glob('*.json'))
             self.assertEqual(json.loads(queued.read_bytes()), request)
+
+    def test_call_args_file_accepts_utf8_with_and_without_bom(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve() / '中文 空間'
+            (root / 'inbox').mkdir(parents=True)
+            state = {'protocol_version': 1, 'enabled': True, 'session_id': 'session',
+                     'model_token': 'model', 'revision': 0, 'capabilities': ['create_box'],
+                     'heartbeat_at': datetime.datetime.now(datetime.timezone.utc).isoformat()}
+            (root / 'session.json').write_text(json.dumps(state), encoding='utf-8')
+            arguments = {'name': '客廳 櫃體', 'note': '第一行\n第二行'}
+            source = root / 'arguments.json'
+            for encoding in ('utf-8', 'utf-8-sig'):
+                with self.subTest(encoding=encoding):
+                    source.write_text(json.dumps(arguments, ensure_ascii=False), encoding=encoding)
+                    output = subprocess.run(
+                        [sys.executable, str(Path(module.__file__)), '--root', str(root),
+                         'call', 'create_box', '--args-file', str(source), '--no-wait'],
+                        check=True, capture_output=True)
+                    submitted = json.loads(output.stdout)
+                    self.assertEqual(submitted['request']['arguments'], arguments)
+                    queued = root / 'inbox' / (submitted['receipt'] + '.json')
+                    self.assertEqual(json.loads(queued.read_bytes())['arguments'], arguments)
 
     @unittest.skipIf(os.name == 'nt', 'Windows junction is tested separately')
     def test_symbolic_link_is_rejected(self):

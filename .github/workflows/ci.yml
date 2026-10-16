@@ -14,7 +14,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        include:
+          - os: windows-2022
+            ruby: '2.7.2'
+            python: '3.9'
+          - os: windows-2022
+            ruby: '2.7.8'
+            python: '3.11'
+          - os: windows-2022
+            ruby: '3.2'
+            python: '3.11'
+          - os: macos-14
+            ruby: '3.2'
+            python: '3.11'
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -23,12 +35,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python }}
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: ${{ matrix.ruby }}
       - name: Install test dependency
-        run: gem install minitest --no-document
+        run: gem install minitest -v 5.25.5 --no-document
+      - name: Report runtimes
+        run: |
+          ruby -v
+          python --version
+          ruby -e 'require "minitest"; puts "minitest #{Minitest::VERSION}"'
       - name: Check Ruby syntax
         run: ruby -e 'Dir.glob("{extension,scripts}/**/*.rb").each { |f| abort("Syntax check failed") unless system("ruby", "-c", f) }'
       - name: Test transport
@@ -39,6 +56,6 @@ jobs:
         run: python scripts/package.py
       - uses: actions/upload-artifact@v4
         with:
-          name: sketchup-bridge-distributions-${{ matrix.os }}
+          name: sketchup-bridge-${{ matrix.os }}-ruby-${{ matrix.ruby }}-python-${{ matrix.python }}
           path: dist/*
           if-no-files-found: error

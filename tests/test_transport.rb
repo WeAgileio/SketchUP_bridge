@@ -1,4 +1,5 @@
 require 'minitest/autorun'
+require 'minitest/mock'
 require 'tmpdir'
 require 'open3'
 require 'rbconfig'
@@ -170,6 +171,63 @@ class TransportTest < Minitest::Test
     if link && File.symlink?(link)
       Gem.win_platform? ? Dir.rmdir(link) : File.unlink(link)
     end
+  end
+
+  def test_windows_replacement_recovers_after_short_contention
+    source = File.join(@dir, 'source.tmp')
+    destination = File.join(@dir, 'destination.json')
+    File.binwrite(source, 'new')
+    File.binwrite(destination, 'old')
+    rename = File.method(:rename)
+    attempts = 0
+    replacement = lambda do |from, to|
+      attempts += 1
+      raise Errno::EACCES if attempts < 3
+      rename.call(from, to)
+    end
+    File.stub(:rename, replacement) do
+      @transport.rename_file(source, destination, windows: true)
+    end
+    assert_equal 3, attempts
+    assert_equal 'new', File.binread(destination)
+    refute File.exist?(source)
+  end
+
+  def test_replacement_retry_is_bounded_and_windows_only
+    [true, false].each do |windows|
+      attempts = 0
+      replacement = lambda do |*_args|
+        attempts += 1
+        raise Errno::EPERM
+      end
+      File.stub(:rename, replacement) do
+        assert_raises(Errno::EPERM) do
+          @transport.rename_file('source', 'destination', windows: windows)
+        end
+      end
+      assert_equal(windows ? 11 : 1, attempts)
+    end
+  end
+
+  def test_result_replacement_failure_does_not_reexecute_model_operation
+    req = request('blocked-result')
+    @transport.atomic_write('inbox/blocked.json', req)
+    rename = File.method(:rename)
+    transport_rename = @transport.method(:rename_file)
+    replacement = lambda do |from, to|
+      raise Errno::EACCES if to == File.join(@dir, 'results', 'blocked-result.json')
+      rename.call(from, to)
+    end
+    @transport.stub(:rename_file, ->(from, to) { transport_rename.call(from, to, windows: true) }) do
+      File.stub(:rename, replacement) { assert_raises(Errno::EACCES) { @transport.tick } }
+    end
+    assert_equal 1, @adapter.calls
+    assert_equal 'claimed', @transport.read('journal/blocked-result.json')['status']
+    @transport.stop
+    @transport = CodexSketchupBridge::Transport.new(@dir, @adapter).start
+    assert_equal 'outcome_unknown', @transport.read('results/blocked-result.json')['status']
+    send_request(req, 'retry-blocked')
+    assert_equal 1, @adapter.calls
   end
 
   def test_serialization_guards

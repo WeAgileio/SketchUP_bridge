@@ -1,5 +1,7 @@
 # 驗證範圍與重現方式
 
+本次 0.1.1 的狀態見 [相容性核對表](compatibility.md)，Windows 2023 驗收使用 [記錄範本](windows-2023-acceptance.md)。
+
 ## 實機記錄
 
 2026-10-05 曾於 macOS、SketchUp 26.2.242、內嵌 Ruby 3.2.2 完成九組整合驗證：

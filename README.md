@@ -1,6 +1,6 @@
 # SketchUP Bridge
 
-讓 Codex 透過本機 Ruby API，在 **SketchUp 2026 桌面版** 查詢、建立及修改實際模型。包含 SketchUp 外掛、Python 客戶端，以及可安裝的 **`$sketchup-modeling` skill**。適用室內設計與一般建模，不預設房型、尺寸或操作順序。
+讓 Codex 透過本機 Ruby API，在 **SketchUp 桌面版** 查詢、建立及修改實際模型。包含 SketchUp 外掛、Python 客戶端，以及可安裝的 **`$sketchup-modeling` skill**。適用室內設計與一般建模，不預設房型、尺寸或操作順序。
 
 ```text
 你的建模需求 → Codex + skill → Python 客戶端
@@ -12,15 +12,17 @@
 
 ## 下載與需求
 
-目前已發布的 `v0.1.0` 為 macOS 版本；本分支 `0.1.1` 加入 Windows 相容處理。Windows 候選包可由本分支成功的 GitHub Actions 下載 `sketchup-bridge-distributions-windows-latest`，或自行執行打包腳本。Windows SketchUp 實機驗證尚待完成。
+本次 `0.1.1` 為 **Windows SketchUp 2023 相容性候選版**，同時保留 macOS SketchUp 2026 的使用方式。Windows Ruby 2.7 CI 與 SketchUp 2023 實機結果仍待驗證，不能把候選版視為已完整驗收。
 
-目前發行包可從 [Releases](https://github.com/WeAgileio/SketchUP_bridge/releases) 下載：
+由本分支執行 `python scripts/package.py`（Windows 可用 `py -3`）產生：
 
-- `codex-sketchup-bridge-0.1.0.rbz`：安裝到 SketchUp。
-- `sketchup-modeling-0.1.0.zip`：安裝到 Codex 的 skills 目錄。
-- `SHA256SUMS`：檔案校驗值。
+- `dist/codex-sketchup-bridge-0.1.1.rbz`：SketchUp 外掛。
+- `dist/sketchup-modeling-0.1.1.zip`：Codex skill。
+- `dist/SHA256SUMS`：檔案校驗值。
 
-需求：macOS 或 Windows、支援 Ruby 擴充程式的 SketchUp 2026 桌面版、Python 3.9+、可存取本機檔案的 Codex。macOS 實機曾驗證 SketchUp 26.2.242／Ruby 3.2.2；Windows 的檔案傳輸、客戶端與封裝由 CI 驗證，SketchUp 建模仍須實機測試。SketchUp Web 不適用。Windows 安裝與驗收步驟見 [Windows 指南](docs/windows.md)。
+既有 [Releases](https://github.com/WeAgileio/SketchUP_bridge/releases) 的 v0.1.0 不包含本次相容修改。
+
+需求：Windows 桌面版 SketchUp 2023 或 macOS SketchUp 2026、原生 Python 3.9+、可存取本機檔案的 Codex。不需額外安裝 Ruby；SketchUp Web 不適用。請使用兩個程式均可存取的一般本機資料夾。詳見 [Windows 指南](docs/windows.md)、[相容性與測試狀態](docs/compatibility.md)。
 
 ## 安裝 SketchUp 外掛
 
@@ -78,9 +80,9 @@ python3 -m unittest discover -s tests -p 'test_*.py'
 python3 scripts/package.py
 ```
 
-Ruby 測試需要 `minitest`（若缺少，執行 `gem install minitest`）；外掛與 Python 客戶端本身不需要下載額外套件。
+Ruby 測試需要 `minitest`（若缺少，執行 `gem install minitest -v 5.25.5`）；外掛與 Python 客戶端本身不需要下載額外套件。
 
-打包會檢查 skill 的客戶端副本與 `client/bridge.py` 一致，再產出 RBZ、skill ZIP 及 SHA256SUMS 到 `dist/`。GitHub Actions 在 macOS 與 Windows 執行傳輸／客戶端／跨程序互通／封裝測試，成功後提供可下載的建置產物；CI 不執行 SketchUp GUI。實機驗證範圍及重現方式見 [驗證文件](docs/verification.md)。
+打包會檢查 skill 的客戶端副本與 `client/bridge.py` 一致，再產出 RBZ、skill ZIP 及 SHA256SUMS 到 `dist/`。GitHub Actions 已設定 Windows Ruby 2.7.2／2.7.8／3.2 與 macOS Ruby 3.2 測試組合，涵蓋 Python 3.9／3.11。需實際執行成功後才有對應結果與建置產物；CI 不執行 SketchUp GUI。實機驗證範圍及重現方式見 [驗證文件](docs/verification.md)。
 
 ```text
 extension/                 SketchUp Ruby 外掛

@@ -1,17 +1,17 @@
 ---
 name: sketchup-modeling
-description: "透過 Codex SketchUp Bridge 在 macOS／Windows SketchUp 2026 查詢、建立或修改實際模型，核對尺寸、處理群組與元件並匯出視圖。當使用者要求操作 SketchUp、依描述建模或調整既有模型時使用；適用室內設計及一般建模，不預設房型或流程。"
+description: "透過 Codex SketchUp Bridge 在 macOS SketchUp 2026／Windows SketchUp 2023 查詢、建立或修改實際模型，核對尺寸、處理群組與元件並匯出視圖。當使用者要求操作 SketchUp、依描述建模或調整既有模型時使用；適用室內設計及一般建模，不預設房型或流程。"
 ---
 
 # SketchUp 建模
 
-使用已安裝的 Codex SketchUp Bridge 0.1.1、協定 v1。優先經本機檔案佇列呼叫 Ruby API；使用者描述決定建模目標，模型查詢決定實際狀態。不要預設新建空模型、清除場景、房間尺寸、座標方向或物件分類。
+使用已安裝的 Codex SketchUp Bridge 0.1.1、協定 v1。Windows SketchUp 2023 為相容性候選目標，實機驗證狀態以專案記錄為準。優先經本機檔案佇列呼叫 Ruby API；使用者描述決定建模目標，模型查詢決定實際狀態。不要預設新建空模型、清除場景、房間尺寸、座標方向或物件分類。
 
 ## 連線與工具
 
 此 skill 的 `scripts/bridge.py` 是外掛專案的 Python 標準函式庫客戶端副本，需 Python 3.9+。以目前 skill 的絕對位置呼叫，可在任意工作目錄使用；不用另外建立 MCP 伺服器。
 
-先找出使用者指定或本次工作已確認的橋接目錄。若目前工作目錄含 `bridge-runtime/session.json`，可當候選位置；缺少位置資訊時詢問使用者實際選定的資料夾，不搜尋其他模型或默認某個人的家目錄。macOS 常見 app 位置是 `/Applications/SketchUp 2026/SketchUp.app`；Windows 依使用者安裝位置啟動 SketchUp。Windows 使用原生 Python（`py -3` 或 `python`），不要把 WSL 路徑直接傳給 Windows SketchUp；橋接選用一般本機資料夾，避開 junction、符號連結及同步目錄。
+先找出使用者指定或本次工作已確認的橋接目錄。若目前工作目錄含 `bridge-runtime/session.json`，可當候選位置；缺少位置資訊時詢問使用者實際選定的資料夾，不搜尋其他模型或默認某個人的家目錄。macOS 常見 app 位置是 `/Applications/SketchUp 2026/SketchUp.app`；Windows 依使用者安裝位置啟動 SketchUp 2023。先核對 model_info 回報的 SketchUp 與 Ruby 版本；Windows 2023 使用內嵌 Ruby 2.7，不另裝 Ruby。Windows 使用原生 Python（`py -3` 或 `python`），不要把 WSL 路徑直接傳給 Windows SketchUp；橋接選用一般本機資料夾，避開 junction、符號連結及同步目錄。
 
 先讀取 `status`，再呼叫 `model_info`。以下 Bash 範例在 Windows PowerShell 改用 `py -3`，並將續行符 `\` 改成 PowerShell 的反引號或寫成單行。變數分別是此 skill 內 `scripts/bridge.py` 的絕對路徑、實際橋接目錄、以及查詢所得 token；執行前依環境設定，勿把 JSON 或 Ruby 腳本插值成 shell 程式碼。
 
