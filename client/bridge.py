@@ -6,11 +6,20 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
+import sys
 import time
 import uuid
 
 MAX_BYTES = 1_048_576
 ID = re.compile(r'^[a-zA-Z0-9_-]{1,80}$')
+RESERVED_NAME = re.compile(r'^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)', re.I)
+
+
+def open_binary_read(path):
+    """Read bytes; path() checks symlinks/reparse points on every platform."""
+    flags = os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_BINARY', 0)
+    return os.fdopen(os.open(path, flags), 'rb')
 
 
 class BridgeClient:
@@ -18,17 +27,26 @@ class BridgeClient:
         self.root = Path(root).absolute()
 
     def path(self, relative):
-        parts = Path(relative).parts
-        if not parts or Path(relative).is_absolute() or any(p in ('.', '..') for p in parts):
+        if not isinstance(relative, str):
+            raise ValueError('Unsafe relative path')
+        parts = relative.split('/')
+        if any(not re.fullmatch(r'[a-zA-Z0-9_.-]+', p) or p in ('.', '..')
+               or p.endswith('.') or RESERVED_NAME.match(p) for p in parts):
             raise ValueError('Unsafe relative path')
         result = self.root.joinpath(*parts)
         for p in (result, *result.parents):
             if p.is_symlink():
                 raise ValueError('Symbolic links are not allowed: ' + str(p))
+            try:
+                attributes = getattr(p.lstat(), 'st_file_attributes', 0)
+            except FileNotFoundError:
+                continue
+            if attributes & getattr(stat, 'FILE_ATTRIBUTE_REPARSE_POINT', 0x400):
+                raise ValueError('Reparse points are not allowed: ' + str(p))
         return result
 
     def read(self, relative):
-        with os.fdopen(os.open(self.path(relative), os.O_RDONLY | os.O_NOFOLLOW), 'rb') as f:
+        with open_binary_read(self.path(relative)) as f:
             data = f.read(MAX_BYTES + 1)
         if len(data) > MAX_BYTES:
             raise ValueError('Response too large')
@@ -73,7 +91,7 @@ class BridgeClient:
         final = self.path('inbox/' + receipt + '.json')
         temp = self.path('inbox/' + receipt + '.tmp')
         try:
-            with os.fdopen(os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as f:
+            with os.fdopen(os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_BINARY', 0), 0o600), 'wb') as f:
                 f.write(blob)
                 f.flush()
                 os.fsync(f.fileno())
@@ -109,6 +127,9 @@ class BridgeClient:
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', required=True)
     subs = parser.add_subparsers(dest='command', required=True)
@@ -133,9 +154,9 @@ def main():
     if args.command == 'status':
         output = client.state(require_live=False)
     elif args.command == 'submit-file':
-        output = client.submit_request(json.loads(Path(args.file).read_text()))
+        output = client.submit_request(json.loads(Path(args.file).read_text(encoding='utf-8-sig')))
     elif args.command == 'call':
-        arguments = json.loads(Path(args.args_file).read_text()) if args.args_file else json.loads(args.args)
+        arguments = json.loads(Path(args.args_file).read_text(encoding='utf-8-sig')) if args.args_file else json.loads(args.args)
         submitted = client.submit(args.action, arguments, args.request_id, args.expected_revision, args.model_token)
         print(json.dumps(submitted, ensure_ascii=False), flush=True)
         if args.no_wait:

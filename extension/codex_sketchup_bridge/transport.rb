@@ -4,6 +4,9 @@ require 'fileutils'
 module CodexSketchupBridge
   class Transport
     DIRECTORIES = %w[inbox processing results rejections journal exports].freeze
+    NOFOLLOW = File.const_defined?(:NOFOLLOW) ? File::NOFOLLOW : 0
+    WINDOWS = RUBY_PLATFORM.match?(/mswin|mingw/)
+    RESERVED_NAME = /\A(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|\z)/i
     attr_reader :root, :session_id
 
     def initialize(root, adapter)
@@ -15,8 +18,8 @@ module CodexSketchupBridge
 
     def safe_path(relative)
       Protocol.fail!('invalid_path', 'Relative path required') unless relative.is_a?(String) && !relative.empty?
-      parts = relative.split('/')
-      Protocol.fail!('invalid_path', 'Unsafe path') if relative.start_with?('/') || parts.any? { |p| p.empty? || p == '.' || p == '..' || p.include?("\0") }
+      parts = relative.split('/', -1)
+      Protocol.fail!('invalid_path', 'Unsafe path') if parts.any? { |p| !p.match?(/\A[a-zA-Z0-9_.-]+\z/) || p == '.' || p == '..' || p.end_with?('.') || RESERVED_NAME.match?(p) }
       current = @root
       # Include root ancestors: do not follow a substituted symlink.
       ancestors = []
@@ -41,20 +44,36 @@ module CodexSketchupBridge
       Protocol.fail!('result_too_large', 'Result exceeds 1 MiB; use pagination') if json.bytesize > Protocol::MAX_BYTES
       temp = safe_path("#{relative}.#{SecureRandom.hex(8)}.tmp")
       File.open(temp, File::WRONLY | File::CREAT | File::EXCL, 0o600) do |file|
+        file.binmode
         file.write(json)
         file.flush
         file.fsync
       end
-      File.rename(temp, path)
+      rename_file(temp, path)
     ensure
       File.delete(temp) if temp && File.exist?(temp)
     end
 
+    def rename_file(source, destination)
+      retries = 0
+      begin
+        File.rename(source, destination)
+      rescue Errno::EACCES, Errno::EPERM
+        # Windows cannot replace a file during even a short read. Retry only
+        # this filesystem step, never the request or model operation.
+        raise unless WINDOWS && retries < 10
+        retries += 1
+        sleep 0.02
+        retry
+      end
+    end
+
     def read(relative)
       path = safe_path(relative)
-      File.open(path, File::RDONLY | File::NOFOLLOW) do |file|
+      File.open(path, File::RDONLY | NOFOLLOW) do |file|
+        file.binmode
         Protocol.fail!('invalid_request', 'File exceeds 1 MiB') if file.size > Protocol::MAX_BYTES
-        JSON.parse(file.read(Protocol::MAX_BYTES + 1))
+        JSON.parse(file.read(Protocol::MAX_BYTES + 1).force_encoding(Encoding::UTF_8))
       end
     end
 
@@ -65,7 +84,7 @@ module CodexSketchupBridge
       DIRECTORIES.each do |dir|
         FileUtils.mkdir_p(safe_path(dir), mode: 0o700)
       end
-      @lock = File.open(safe_path('bridge.lock'), File::RDWR | File::CREAT | File::NOFOLLOW, 0o600)
+      @lock = File.open(safe_path('bridge.lock'), File::RDWR | File::CREAT | NOFOLLOW, 0o600)
       Protocol.fail!('directory_busy', 'Another SketchUp instance owns this directory') unless @lock.flock(File::LOCK_EX | File::LOCK_NB)
       File.chmod(0o700, @root)
       DIRECTORIES.each { |dir| File.chmod(0o700, safe_path(dir)) }
@@ -145,7 +164,7 @@ module CodexSketchupBridge
       executed = false
       moved = false
       begin
-        File.rename(safe_path("inbox/#{file}"), safe_path("processing/#{file}"))
+        rename_file(safe_path("inbox/#{file}"), safe_path("processing/#{file}"))
         moved = true
         request = read("processing/#{file}")
         Protocol.validate!(request)

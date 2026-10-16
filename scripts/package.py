@@ -27,7 +27,7 @@ def write_archive(output, entries):
 
 def build(output_dir):
     registration = ROOT / 'extension/codex_sketchup_bridge.rb'
-    version = re.search(r"VERSION = '([0-9]+\.[0-9]+\.[0-9]+)'", registration.read_text()).group(1)
+    version = re.search(r"VERSION = '([0-9]+\.[0-9]+\.[0-9]+)'", registration.read_text(encoding='utf-8')).group(1)
     skill = ROOT / 'skills/sketchup-modeling'
     if (ROOT / 'client/bridge.py').read_bytes() != (skill / 'scripts/bridge.py').read_bytes():
         raise ValueError('Skill client differs from client/bridge.py; synchronize it before packaging')
@@ -44,7 +44,7 @@ def build(output_dir):
     write_archive(outputs[0], rbz_entries)
     write_archive(outputs[1], skill_entries)
     (output_dir / 'SHA256SUMS').write_text(''.join(
-        hashlib.sha256(path.read_bytes()).hexdigest() + '  ' + path.name + '\n' for path in outputs))
+        hashlib.sha256(path.read_bytes()).hexdigest() + '  ' + path.name + '\n' for path in outputs), encoding='utf-8')
     return outputs
 
 
