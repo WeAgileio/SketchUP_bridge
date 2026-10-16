@@ -1,6 +1,6 @@
 # 結構化操作與座標
 
-適用 Codex SketchUp Bridge 0.1.0／協定 v1。所有 arguments 是 JSON object；每份請求上限 1 MiB。下表只列客戶端可送的 action，UI 操作與任意 Ruby 不自動成為 action。
+適用 Codex SketchUp Bridge 0.1.1／協定 v1。所有 arguments 是 JSON object；每份請求上限 1 MiB。下表只列客戶端可送的 action，UI 操作與任意 Ruby 不自動成為 action。
 
 ## 查詢與匯出
 

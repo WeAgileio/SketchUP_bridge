@@ -11,27 +11,51 @@ permissions:
 
 jobs:
   verify:
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            ruby: '2.7.2'
+            python: '3.9'
+          - os: windows-2022
+            ruby: '2.7.8'
+            python: '3.11'
+          - os: windows-2022
+            ruby: '3.2'
+            python: '3.11'
+          - os: macos-14
+            ruby: '3.2'
+            python: '3.11'
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python }}
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: ${{ matrix.ruby }}
       - name: Install test dependency
-        run: gem install minitest --no-document
+        run: gem install minitest -v 5.25.5 --no-document
+      - name: Report runtimes
+        run: |
+          ruby -v
+          python --version
+          ruby -e 'require "minitest"; puts "minitest #{Minitest::VERSION}"'
       - name: Check Ruby syntax
         run: ruby -e 'Dir.glob("{extension,scripts}/**/*.rb").each { |f| abort("Syntax check failed") unless system("ruby", "-c", f) }'
       - name: Test transport
         run: ruby tests/test_transport.rb
       - name: Test client and distribution
-        run: python3 -m unittest discover -s tests -p 'test_*.py'
+        run: python -m unittest discover -s tests -p 'test_*.py'
       - name: Build distributions
-        run: python3 scripts/package.py
+        run: python scripts/package.py
       - uses: actions/upload-artifact@v4
         with:
-          name: sketchup-bridge-distributions
+          name: sketchup-bridge-${{ matrix.os }}-ruby-${{ matrix.ruby }}-python-${{ matrix.python }}
           path: dist/*
           if-no-files-found: error

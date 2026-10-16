@@ -32,7 +32,7 @@ class DistributionTests(unittest.TestCase):
                 self.assertEqual(archive.read('sketchup-modeling/scripts/bridge.py'),
                                  (ROOT / 'client/bridge.py').read_bytes())
                 self.assertEqual(archive.read('sketchup-modeling/LICENSE'), (ROOT / 'LICENSE').read_bytes())
-            for line in (Path(directory) / 'SHA256SUMS').read_text().splitlines():
+            for line in (Path(directory) / 'SHA256SUMS').read_text(encoding='utf-8').splitlines():
                 digest, name = line.split('  ', 1)
                 self.assertEqual(digest, hashlib.sha256((Path(directory) / name).read_bytes()).hexdigest())
             package.build(directory)
@@ -45,10 +45,10 @@ class DistributionTests(unittest.TestCase):
             self.assertTrue((destination / 'SKILL.md').is_file())
             self.assertEqual((destination / 'scripts/bridge.py').read_bytes(),
                              (ROOT / 'client/bridge.py').read_bytes())
-            (destination / 'SKILL.md').write_text('existing user changes')
+            (destination / 'SKILL.md').write_text('existing user changes', encoding='utf-8')
             with self.assertRaises(FileExistsError):
                 installer.install(directory)
-            self.assertEqual((destination / 'SKILL.md').read_text(), 'existing user changes')
+            self.assertEqual((destination / 'SKILL.md').read_text(encoding='utf-8'), 'existing user changes')
 
 
 if __name__ == '__main__':

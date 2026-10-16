@@ -1,5 +1,7 @@
 # 驗證範圍與重現方式
 
+本次 0.1.1 的狀態見 [相容性核對表](compatibility.md)，Windows 2023 驗收使用 [記錄範本](windows-2023-acceptance.md)。
+
 ## 實機記錄
 
 2026-10-05 曾於 macOS、SketchUp 26.2.242、內嵌 Ruby 3.2.2 完成九組整合驗證：
@@ -28,7 +30,7 @@ python3 -m unittest discover -s tests -p 'test_*.py'
 python3 scripts/package.py
 ```
 
-Ruby 傳輸測試覆蓋去重、請求衝突、session／模型拒絕、半寫入、崩潰復原、目錄鎖、路徑邊界與日期驗證。Python 測試覆蓋逾時不重送、receipt 拒絕、路徑／數值檢查、發行包內容／checksum／重現性，以及安裝時保留既有 skill。
+Ruby 傳輸測試覆蓋去重、請求衝突、session／模型拒絕、半寫入、崩潰復原、目錄鎖、路徑邊界與日期驗證。Python 測試覆蓋逾時不重送、receipt 拒絕、路徑／數值檢查、發行包內容／checksum／重現性，以及安裝時保留既有 skill。0.1.1 增加中文／空白目錄、UTF-8 BOM、Windows 路徑與 junction 拒絕、跨程序目錄鎖、讀取時原子替換，以及實際 Ruby transport 與 Python 客戶端的跨程序 JSON 往返。互通測試使用 EchoAdapter，不模擬 SketchUp 建模成功。
 
 ## 重新執行 SketchUp 驗證
 
@@ -57,4 +59,4 @@ Ruby 傳輸測試覆蓋去重、請求衝突、session／模型拒絕、半寫�
 - SketchUp 會移除空容器；外掛使用帶標記的隱藏 ConstructionPoint 保留，加入內容後清除。
 - 實測 `SketchupExtension.load_on_start?` 曾回報 false，與實際自動載入不符；以管理器、選單和橋接回應判斷。
 - 每次修改是一個 operation；多次請求不自動成為同一次 Undo。任意 Ruby 的檔案／程序副作用沒有撤銷保障。
-- 第一版修改要求根編輯層與選取工具；沒有 UI 背景執行、強制逾時、完整室內物件庫或 Windows 相容性承諾。
+- 修改要求根編輯層與選取工具；沒有 UI 背景執行、強制逾時或完整室內物件庫。0.1.1 加入 Windows 傳輸與客戶端相容處理，Windows SketchUp 實測仍待完成，見 [Windows 指南](windows.md)。
